@@ -2,7 +2,7 @@
 
 import streamlit as st
 import pg1
-import pg2
+import pg22
 import pg4
 import pg3
 import pg5
@@ -70,7 +70,7 @@ with tabs[1]:
     pg1.main()
 
 with tabs[5]:
-    pg2.main()
+    pg22.main()
 
 with tabs[2]:
     pg3.main()
