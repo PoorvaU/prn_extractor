@@ -70,98 +70,48 @@ def check_existing_records(table_name, column_name, values):
     conn.close()
     return set([record[0] for record in existing_records])
 
-def fe_all_branchwise_comparison():
-    # Step 1: Upload Excel file
-    uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"], key="fe_branchwise_uploader")
-    if uploaded_file:
-        df_excel = pd.read_excel(uploaded_file)
-        st.write("Uploaded Excel file preview:")
-        st.write(df_excel.head())
+def append_data_to_table(table_name, data):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Select only the required columns from the DataFrame
+        data = data[['Name', 'Year of Enrollment', "Student's Enrollment Number", 'Eligibility', 'Date of Enrollment']]
 
-        # Step 2: Select columns from Excel file
-        excel_columns = list(df_excel.columns)
-        selected_excel_column = st.selectbox(
-            "Select a column from Excel file to compare", excel_columns, key="excel_compare_column")
-        selected_branch_column = st.selectbox(
-            "Select a column from Excel file to segregate data (Branch)", excel_columns, key="excel_branch_column")
+        # Format 'Date of Enrollment' column to 'mm/dd/yyyy' format
+        def format_date(date_str):
+            parts = date_str.split('-')
+            if len(parts) == 3:
+                return f"{parts[1]}/{parts[2]}/{parts[0]}"
+            else:
+                return date_str
 
-        # Step 3: Connect to MySQL and list tables
-        conn = get_db_connection()
-        if conn.is_connected():
-            tables = get_table_names(conn)
-            selected_table = st.selectbox(
-                "Select a table from the database", tables, key="db_table_selectbox_fe_branchwise")
+        data['Date of Enrollment'] = data['Date of Enrollment'].apply(format_date)
 
-            if selected_table:
-                # Step 4: List columns from selected table
-                db_columns = get_column_names(conn, selected_table)
-                selected_db_column = st.selectbox(
-                    "Select a column from the database table to compare", db_columns, key="db_compare_column")
+        # Check for existing records to avoid duplicates
+        existing_records = check_existing_records(table_name, "Student's Enrollment Number", data["Student's Enrollment Number"].tolist())
+        data_to_append = data[~data["Student's Enrollment Number"].isin(existing_records)]
 
-                if selected_db_column:
-                    # Step 5: Fetch data from the selected table
-                    db_data = get_table_data(conn, selected_table)
+        if not data_to_append.empty:
+            # Construct the SQL query for insertion
+            columns = ', '.join(['`' + col + '`' for col in data_to_append.columns])
+            placeholders = ', '.join(['%s'] * len(data_to_append.columns))
+            sql = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
 
-                    if st.button("Run Comparison", key="fe_branchwise_compare_button"):
-                        # Step 6: Perform comparison and segregate data
-                        department_table_data = get_table_data(conn, "Department")
-                        st.write("Department table columns:", department_table_data.columns)
+            # Convert DataFrame to list of tuples
+            data_values = [tuple(row) for row in data_to_append.values]
 
-                        if "Dept_name" in department_table_data.columns:
-                            matches = []
-                            unmatched = []
-                            for excel_value, branch in zip(df_excel[selected_excel_column].dropna(), df_excel[selected_branch_column]):
-                                match = fuzzy_match(excel_value, db_data[selected_db_column].tolist())
-                                if match:
-                                    matched_record = db_data[db_data[selected_db_column] == match].iloc[0]
-                                    matched_record['Branch'] = branch
-                                    matches.append(matched_record)
-                                else:
-                                    unmatched.append(excel_value)
+            # Execute the query
+            cursor.executemany(sql, data_values)
+            conn.commit()
+            st.write(f"Data appended to {table_name}")
+        else:
+            st.write(f"No new data to append to {table_name}")
+    except Exception as e:
+        st.write(f"Error appending data to {table_name}: {e}")
+    finally:
+        conn.close()
 
-                            matched_df = pd.DataFrame(matches)
-                            st.write("Matched records:")
-                            st.write(matched_df)
 
-                            if unmatched:
-                                st.write("Unmatched records:")
-                                st.write(unmatched)
-
-                            # Step 7: Save matched records into new tables based on branch
-                            for branch, group in matched_df.groupby('Branch'):
-                                dept_info = department_table_data[department_table_data["Dept_Code"] == branch].iloc[0]
-                                dept_no = dept_info["Dept_no"]
-                                dept_code = dept_info["Dept_Code"]
-                                new_table_name = f"{dept_no}_{dept_code}_FE"
-
-                                cursor = conn.cursor()
-                                create_table_query = f"CREATE TABLE IF NOT EXISTS `{new_table_name}` LIKE `{selected_table}`"
-                                cursor.execute(create_table_query)
-                                conn.commit()
-
-                                existing_records = check_existing_records(new_table_name, selected_db_column, group[selected_db_column].tolist())
-
-                                for _, row in group.iterrows():
-                                    if row[selected_db_column] not in existing_records:
-                                        placeholders = ", ".join(["%s"] * len(row))
-                                        columns = ", ".join([f"`{col}`" for col in row.index])
-                                        insert_query = f"INSERT INTO `{new_table_name}` ({columns}) VALUES ({placeholders})"
-                                        cursor.execute(insert_query, tuple(row))
-                                        conn.commit()
-
-                                st.success(f"Matched records have been saved to the new table: {new_table_name}")
-
-                                # Preview the new table
-                                new_table_data = get_table_data(conn, new_table_name)
-                                st.write(f"Preview of the new table '{new_table_name}':")
-                                st.write(new_table_data)
-
-                        else:
-                            st.error("The 'Dept_name' column does not exist in the 'department' table.")
-
-                    conn.close()
-                else:
-                    st.error("Failed to connect to the database.")
 
 def main():
     # Streamlit app
@@ -229,8 +179,10 @@ def main():
                                         unmatched.append(excel_value)
 
                                 matched_df = pd.DataFrame(matches)
-                                st.write("Matched records:")
-                                st.write(matched_df)
+                                if not matched_df.empty:
+                                    st.write("Matched records:")
+                                    st.write(matched_df)
+
 
                                 if unmatched:
                                     st.write("Unmatched records:")
@@ -238,9 +190,20 @@ def main():
 
                                 # Step 8: Save matched records into the new table
                                 cursor = conn.cursor()
-                                create_table_query = f"CREATE TABLE IF NOT EXISTS `{new_table_name}` LIKE `{selected_table}`"
-                                cursor.execute(create_table_query)
-                                conn.commit()
+                                cursor.execute(f"SHOW TABLES LIKE '{new_table_name}'")
+                                if cursor.fetchone():
+                                    st.warning(f"Table '{new_table_name}' already exists. Skipping table creation.")
+                                else:
+                                    create_table_query = f"CREATE TABLE `{new_table_name}` LIKE `{selected_table}`"
+                                    cursor.execute(create_table_query)
+                                    conn.commit()
+                                    st.success(f"Table '{new_table_name}' created successfully.")
+
+                                
+                                   
+                                # create_table_query = f"CREATE TABLE IF NOT EXISTS `{new_table_name}` LIKE `{selected_table}`"
+                                # cursor.execute(create_table_query)
+                                # conn.commit()
 
                                 existing_records = check_existing_records(new_table_name, selected_db_column, matched_df[selected_db_column].tolist())
 
@@ -265,9 +228,121 @@ def main():
                     conn.close()
                 else:
                     st.error("Failed to connect to the database.")
-
+  
     elif selected_department == "FE - All Branchwise":
-        fe_all_branchwise_comparison()
+        # Step 1: Upload Excel file
+        uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
+        if uploaded_file:
+            df_excel = pd.read_excel(uploaded_file)
+            st.write("Uploaded Excel file preview:")
+            st.write(df_excel.head())
+
+            # Step 2: Select columns from Excel file
+            excel_columns = list(df_excel.columns)
+            selected_excel_column = st.selectbox("Select a column for comparison from Excel file", excel_columns, key="excel_column_selectbox_comparison")
+            selected_categorization_column = st.selectbox("Select a column for categorization from Excel file", excel_columns, key="excel_column_selectbox_categorization")
+
+            # Step 3: Connect to MySQL and list tables
+            conn = get_db_connection()
+            if conn.is_connected():
+                tables = get_table_names(conn)
+                selected_table = st.selectbox("Select a table from the database", tables, key="db_table_selectbox_branchwise")
+
+                if selected_table:
+                    # Step 4: List columns from selected table
+                    db_columns = get_column_names(conn, selected_table)
+                    selected_db_column = st.selectbox("Select a column from the database table", db_columns, key="db_column_selectbox_branchwise")
+
+                    if selected_db_column:
+                        # Step 5: Fetch data from the selected table
+                        db_data = get_table_data(conn, selected_table)
+
+                        # Step 6: Get department data and map to Excel file's categorization column
+                        department_table_data = get_table_data(conn, "department")
+                        st.write("Department table columns:", department_table_data.columns)
+
+                        if "Dept_name" in department_table_data.columns and "Dept_no" in department_table_data.columns and "Dept_Code" in department_table_data.columns:
+                            # Unique department values from selected table
+                            branches = df_excel[selected_categorization_column].unique()
+
+                            for branch in branches:
+                                dept_info = department_table_data[department_table_data["Dept_Code"] == branch]
+
+                                if not dept_info.empty:
+                                    dept_info = dept_info.iloc[0]
+                                    dept_no = dept_info["Dept_no"]
+                                    Dept_Code = dept_info["Dept_Code"]
+                                    new_table_name = f"{dept_no}_{Dept_Code}_FE"
+
+                                    # Filter data for the current department
+                                    branch_data = df_excel[df_excel[selected_categorization_column] == branch]
+
+                                    # Perform fuzzy matching
+                                    matches = []
+                                    unmatched = []
+                                    for excel_value in branch_data[selected_excel_column].dropna():
+                                        match = fuzzy_match(excel_value, db_data[selected_db_column].tolist())
+                                        if match:
+                                            matched_record = db_data[db_data[selected_db_column] == match].iloc[0]
+                                            matches.append(matched_record)
+                                        else:
+                                            unmatched.append(excel_value)
+
+                                    matched_df = pd.DataFrame(matches)
+
+                                    if not matched_df.empty:
+                                        st.write(f"Matched records for {Dept_Code}:")
+                                        st.write(matched_df)
+
+                                        # Step 7: Save matched records into the new table
+                                        cursor = conn.cursor()
+
+                                        # Check if table already exists
+                                        cursor.execute(f"SHOW TABLES LIKE '{new_table_name}'")
+                                        if cursor.fetchone():
+                                            st.warning(f"Table '{new_table_name}' already exists. Skipping table creation.")
+
+                                        else:
+                                            # Create new table if it doesn't exist
+                                            create_table_query = f"CREATE TABLE `{new_table_name}` LIKE `{selected_table}`"
+                                            cursor.execute(create_table_query)
+                                            conn.commit()
+                                            st.success(f"Table '{new_table_name}' created successfully.")
+
+                                        # Insert matched records into the new table
+                                        existing_records = check_existing_records(new_table_name, selected_db_column, matched_df[selected_db_column].tolist())
+
+                                        for _, row in matched_df.iterrows():
+                                            if row[selected_db_column] not in existing_records:
+                                                placeholders = ", ".join(["%s"] * len(row))
+                                                columns = ", ".join([f"`{col}`" for col in row.index])
+                                                insert_query = f"INSERT INTO `{new_table_name}` ({columns}) VALUES ({placeholders})"
+                                                cursor.execute(insert_query, tuple(row))
+                                                conn.commit()
+
+                                        st.success(f"Matched records have been saved to the new table: {new_table_name}")
+
+                                        # Preview the new table
+                                        new_table_data = get_table_data(conn, new_table_name)
+                                        st.write(f"Preview of the new table '{new_table_name}':")
+                                        st.write(new_table_data)
+
+                                    else:
+                                        st.write(f"No matched records for {Dept_Code}.")
+
+                                    if unmatched:
+                                        st.write(f"Unmatched records for {Dept_Code}:")
+                                        st.write(unmatched)
+
+                                else:
+                                    st.error(f"Selected department {branch} does not exist in the 'department' table.")
+
+                        else:
+                            st.error("The 'Dept_name', 'Dept_no', or 'Dept_Code' column does not exist in the 'department' table.")
+
+                    conn.close()
+                else:
+                    st.error("Failed to connect to the database.")
     else:
         st.write("Functionality for other departments is not yet implemented.")
 
