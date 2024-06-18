@@ -2,9 +2,9 @@
 
 import streamlit as st
 import pg1
-import pg22
-import pg44
+import pg2
 import pg3
+import pg4
 import pg5
 
 # Set the page configuration
@@ -70,13 +70,13 @@ with tabs[1]:
     pg1.main()
 
 with tabs[5]:
-    pg22.main()
+    pg2.main()
 
 with tabs[2]:
     pg3.main()
 
 with tabs[3]:
-    pg44.main()
+    pg4.main()
 
 with tabs[4]:
     pg5.main()
