@@ -1,5 +1,5 @@
 
-import os
+
 import streamlit as st
 import pandas as pd
 import mysql.connector
@@ -10,10 +10,11 @@ import base64
 # MySQL database connection
 
 # Load database credentials from secrets.toml
-DB_HOST = os.getenv('DB_HOST')
-DB_USER = os.getenv('DB_USER')
-DB_PASSWORD = os.getenv('DB_PASSWORD')
-DB_NAME = os.getenv('DB_NAME')
+DB_HOST = "mysql.railway.internal"
+DB_USER = "root"
+DB_PASSWORD = "tjRIepmPIFPBfQhxOwGiekbwQKgkdcJS"
+DB_NAME = "railway"
+
 
 def create_connection():
     try:
@@ -26,8 +27,9 @@ def create_connection():
         if conn.is_connected():
             return conn
     except Error as e:
-        print(f"Error: '{e}'")
+        st.error(f"Error: '{e}'")
         return None
+
 
 def fetch_departments(conn):
     query = "SELECT Dept_name, Dept_Code, Dept_no FROM Department"

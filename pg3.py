@@ -1,5 +1,5 @@
 
-import os
+
 import streamlit as st
 import pandas as pd
 import mysql.connector
@@ -7,15 +7,17 @@ from fuzzywuzzy import process
 
 # Function to connect to MySQL database
 # Load database credentials from secrets.toml
-DB_HOST = os.getenv("DB_HOST")
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_NAME = os.getenv("DB_NAME")
+DB_HOST = "mysql.railway.internal"
+DB_USER = "root"
+DB_PASSWORD = "tjRIepmPIFPBfQhxOwGiekbwQKgkdcJS"
+DB_NAME = "railway"
+
 
 def connect_to_database():
+    # Replace with your actual database credentials
     db_config = {
-        'user': DB_USER,
-        'password': DB_PASSWORD,
+        'user': DB_USER,  # Change this to your MySQL username
+        'password': DB_PASSWORD,  # Change this to your MySQL password
         'host': DB_HOST,
         'database': DB_NAME
     }
@@ -23,7 +25,7 @@ def connect_to_database():
         connection = mysql.connector.connect(**db_config)
         return connection
     except mysql.connector.Error as err:
-        print(f"Error: {err}")  # Use print for debugging in local or logging in production
+        st.error(f"Error: {err}")
         return None
 
 # Function to list all tables in the database
