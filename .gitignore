@@ -11,25 +11,11 @@ __pycache__/
 env/
 venv/
 ENV/
-env.bak/
-venv.bak/
 *.egg-info/
-.installed.cfg
 *.egg
 *.whl
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-*.manifest
-*.spec
 
 # Installer logs
 pip-log.txt
@@ -39,32 +25,11 @@ pip-delete-this-directory.txt
 htmlcov/
 .tox/
 .coverage
-.coverage.*
-.cache
-.nox/
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
 .pytest_cache/
 
-# Environments
+# Environment variables
 .env
 .env.*
-
-# dotenv
-.env.local
-.env.*.local
-.env.test
-.env.*.test
-.env.production
-.env.*.production
-
-# SQLAlchemy
-*.db
-
-# Secrets
-secrets.toml
 
 # System files
 .DS_Store
@@ -74,16 +39,4 @@ Thumbs.db
 .ipynb_checkpoints
 
 # Streamlit
-**/.streamlit/
-
-# Ignore Excel files if they're temporary or not needed for version control
-*.xlsx
-
-# Ignore MySQL database dumps or temporary files
-*.sql
-*.bak
-*.tmp
-
-
-
-.streamlit/secret.toml
+.streamlit/
