@@ -10,10 +10,10 @@ import base64
 # MySQL database connection
 
 # Load database credentials from secrets.toml
-DB_HOST = "mysql.railway.internal"
-DB_USER = "root"
-DB_PASSWORD = "tjRIepmPIFPBfQhxOwGiekbwQKgkdcJS"
-DB_NAME = "railway"
+DB_HOST = st.secrets["database"]["host"]
+DB_USER = st.secrets["database"]["user"]
+DB_PASSWORD = st.secrets["database"]["password"]
+DB_NAME = st.secrets["database"]["database"]
 
 
 def create_connection():
