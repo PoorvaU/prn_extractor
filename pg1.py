@@ -9,6 +9,8 @@ DB_HOST = st.secrets["database"]["host"]
 DB_USER = st.secrets["database"]["user"]
 DB_PASSWORD = st.secrets["database"]["password"]
 DB_NAME = st.secrets["database"]["database"]
+DB_PORT = st.secrets["database"].get("port", 3306)
+
 
 
 def get_connection():
