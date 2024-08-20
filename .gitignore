@@ -1,7 +1,9 @@
-# Byte-compiled / optimized / DLL files
+# Byte-compiled files
+*.pyc
+*.pyo
+*.pyd
 __pycache__/
-*.py[cod]
-*$py.class
+
 
 # C extensions
 *.so
@@ -40,3 +42,4 @@ Thumbs.db
 
 # Streamlit
 .streamlit/
+.streamlit/secrets.toml
