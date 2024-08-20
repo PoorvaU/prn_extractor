@@ -40,3 +40,4 @@ Thumbs.db
 
 # Streamlit
 .streamlit/
+.streamlit/secrets.toml
