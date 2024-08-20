@@ -1,4 +1,4 @@
-
+import os
 import streamlit as st
 import mysql.connector
 import pandas as pd
@@ -6,11 +6,11 @@ import pandas as pd
 # MySQL connection setup
 
 # Load database credentials from secrets.toml
-DB_HOST = st.secrets["database"]["host"]
-DB_USER = st.secrets["database"]["user"]
-DB_PASSWORD = st.secrets["database"]["password"]
-DB_NAME = st.secrets["database"]["database"]
-DB_PORT = st.secrets["database"].get("port", 3306)
+DB_HOST = os.getenv("DATABASE_HOST")
+DB_USER = os.getenv("DATABASE_USER")
+DB_PASSWORD = os.getenv("DATABASE_PASSWORD")
+DB_NAME = os.getenv("DATABASE_NAME")
+DB_PORT = os.getenv("DATABASE_PORT")
 
 def get_db_connection():
     return mysql.connector.connect(
