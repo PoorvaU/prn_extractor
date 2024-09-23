@@ -45,14 +45,19 @@ def fetch_tables(conn, Dept_no, Dept_Code):
     WHERE table_schema = '{DB_NAME}' AND table_name LIKE '{Dept_no}_{Dept_Code}_%'
     """
     tables_df = pd.read_sql(query, conn)
-    tables_list = tables_df['TABLE_NAME'].tolist()
+    
+    # Debugging output to check the returned DataFrame
+    st.write(tables_df)  # This will show the DataFrame structure in your Streamlit app
+
+    # Access the correct column name
+    tables_list = tables_df['table_name'].tolist()  # Change here
 
     # Sort tables in the order fe, se, te, be
     sorted_tables = sorted(tables_list, key=lambda x: int(x.split(
         '_')[-1].replace('fe', '1').replace('se', '2').replace('te', '3').replace('be', '4')))
 
-    st.write(tables_df)  # Debugging output to check the returned DataFrame
     return sorted_tables
+
 
 
 def create_and_download_excel(sheets_dict, file_name):
