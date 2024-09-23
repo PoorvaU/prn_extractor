@@ -16,8 +16,8 @@ st.write("User:", DB_USER)
 st.write("Database Name:", DB_NAME)
 
 
-
 def get_connection():
+    """Establish connection to the MySQL database."""
     return mysql.connector.connect(
         host=DB_HOST,
         user=DB_USER,
@@ -27,6 +27,7 @@ def get_connection():
 
 
 def fetch_departments():
+    """Fetch all departments from the Department table."""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT Dept_no, Dept_code, Dept_name FROM Department")
@@ -36,6 +37,7 @@ def fetch_departments():
 
 
 def parse_date(date_str):
+    """Parse date into a standard format."""
     if pd.isnull(date_str):
         return None
     formats = ["%b %d %Y %I:%M%p", "%Y-%m-%d", "%m-%d-%Y", "%d-%m-%Y", "%Y/%m/%d", "%d/%m/%Y",
@@ -49,13 +51,16 @@ def parse_date(date_str):
 
 
 def check_existing_records(table_name, names):
+    """Check for existing records in the database by Name."""
     conn = get_connection()
     cursor = conn.cursor()
 
     # Filter out NaN values from names
     cleaned_names = [name for name in names if pd.notna(name)]
-    placeholders = ', '.join(['%s'] * len(cleaned_names))
+    if not cleaned_names:
+        return set()
 
+    placeholders = ', '.join(['%s'] * len(cleaned_names))
     query = f"SELECT `Name` FROM {table_name} WHERE `Name` IN ({placeholders})"
     cursor.execute(query, cleaned_names)
     existing_records = cursor.fetchall()
@@ -90,8 +95,7 @@ def main():
         add_year_of_enrollment = False
 
         if class_name == "FE" or dept_name == "All":
-            add_year_of_enrollment = st.checkbox(
-                "Add Year of Enrollment Column")
+            add_year_of_enrollment = st.checkbox("Add Year of Enrollment Column")
 
         if add_year_of_enrollment:
             df["Year of Enrollment"] = "2023-24"
@@ -108,8 +112,7 @@ def main():
         final_df.columns = final_column_names
 
         if "Date of Enrollment" in final_df.columns:
-            final_df["Date of Enrollment"] = final_df["Date of Enrollment"].apply(
-                lambda x: parse_date(str(x)))
+            final_df["Date of Enrollment"] = final_df["Date of Enrollment"].apply(lambda x: parse_date(str(x)))
 
         final_df["Eligibility"] = "eligible"
 
@@ -123,19 +126,20 @@ def main():
             conn = get_connection()
             cursor = conn.cursor()
 
+            # Determine table name based on department and class
             if dept_name == "All" and class_name == "FE":
                 table_name = "all_fe_2023_24"
             elif dept_name == "All" and class_name == "DSE":
                 table_name = "all_dse"
             else:
-                dept_info = next(
-                    (dept for dept in departments if dept[2] == dept_name), None)
+                dept_info = next((dept for dept in departments if dept[2] == dept_name), None)
                 if dept_info:
                     dept_no, dept_code = dept_info[:2]
                     table_name = f"{dept_no}_{dept_code}_{class_name}"
                 else:
                     table_name = f"{class_name}"
 
+            # Create table query with optional 'Department' column
             create_table_query = f"""
             CREATE TABLE IF NOT EXISTS {table_name} (
                 Name VARCHAR(255),
@@ -150,20 +154,17 @@ def main():
 
             cursor.execute(create_table_query)
 
+            # Clean 'Student's Enrollment Number' data
             final_df["Student's Enrollment Number"] = final_df["Student's Enrollment Number"].apply(
                 lambda x: str(x).replace('.0', '') if pd.notna(x) else None)
 
+            # Check for existing records
             names = final_df["Name"].tolist()
             existing_names = check_existing_records(table_name, names)
 
-            # Debug: Print existing Names
-            print(f"Existing Names: {existing_names}")
-
+            # Insert data, avoiding duplicates
             for _, row in final_df.iterrows():
                 row_values = [None if pd.isna(val) else val for val in row]
-
-                # Debug: Print row Name and check if it exists
-                print(f"Checking Name: {row['Name']}")
 
                 if row["Name"] not in existing_names:
                     insert_query = f"""
@@ -176,17 +177,13 @@ def main():
                         insert_query += ", %s"
                     insert_query += ")"
                     cursor.execute(insert_query, row_values)
-                    # Add the new Name to the set of existing Names
-                    existing_names.add(row["Name"])
+                    existing_names.add(row["Name"])  # Update existing names set
                 else:
-                    # Debug: Print message if record exists
-                    print(
-                        f"Record with Name {row['Name']} already exists. Skipping insertion.")
+                    st.write(f"Record with Name {row['Name']} already exists. Skipping insertion.")
 
             conn.commit()
             conn.close()
-            st.success(
-                f"Data saved to {table_name} table in the University database.")
+            st.success(f"Data saved to {table_name} table in the University database.")
 
 
 if __name__ == "__main__":
