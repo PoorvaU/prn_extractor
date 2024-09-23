@@ -12,10 +12,8 @@ DB_NAME = st.secrets["database"]["DATABASE_NAME"]
 DB_PORT = int(st.secrets["database"]["DATABASE_PORT"])
 
 
-
-
-
 def get_connection():
+    """Establish a connection to the MySQL database."""
     return mysql.connector.connect(
         host=DB_HOST,
         user=DB_USER,
@@ -23,8 +21,8 @@ def get_connection():
         database=DB_NAME
     )
 
-
 def fetch_departments():
+    """Fetch all departments from the Department table."""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT Dept_no, Dept_code, Dept_name FROM Department")
@@ -32,12 +30,15 @@ def fetch_departments():
     conn.close()
     return departments
 
-
 def parse_date(date_str):
+    """Parse date into a standard format."""
     if pd.isnull(date_str):
         return None
-    formats = ["%b %d %Y %I:%M%p", "%Y-%m-%d", "%m-%d-%Y", "%d-%m-%Y", "%Y/%m/%d", "%d/%m/%Y",
-               "%d-%b-%Y", "%m/%d/%Y", "%Y-%m-%d %H:%M:%S", "%m-%d-%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S"]
+    formats = [
+        "%b %d %Y %I:%M%p", "%Y-%m-%d", "%m-%d-%Y", "%d-%m-%Y",
+        "%Y/%m/%d", "%d/%m/%Y", "%d-%b-%Y", "%m/%d/%Y",
+        "%Y-%m-%d %H:%M:%S", "%m-%d-%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S"
+    ]
     for fmt in formats:
         try:
             return datetime.strptime(date_str, fmt).strftime('%m/%d/%Y')
@@ -45,22 +46,21 @@ def parse_date(date_str):
             continue
     return None
 
-
 def check_existing_records(table_name, names):
+    """Check for existing records in the database by Name."""
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Filter out NaN values from names
     cleaned_names = [name for name in names if pd.notna(name)]
-    placeholders = ', '.join(['%s'] * len(cleaned_names))
+    if not cleaned_names:
+        return set()
 
+    placeholders = ', '.join(['%s'] * len(cleaned_names))
     query = f"SELECT `Name` FROM {table_name} WHERE `Name` IN ({placeholders})"
     cursor.execute(query, cleaned_names)
     existing_records = cursor.fetchall()
-
     conn.close()
-    return set([record[0] for record in existing_records])
-
+    return set(record[0] for record in existing_records)
 
 def main():
     st.title("PRN Generator")
@@ -80,16 +80,12 @@ def main():
 
     if uploaded_file:
         df = pd.read_excel(uploaded_file)
-        st.write("Uploaded File Columns:")
-        st.dataframe(df.columns)
 
         selected_columns = st.multiselect("Select Columns", df.columns)
 
         add_year_of_enrollment = False
-
         if class_name == "FE" or dept_name == "All":
-            add_year_of_enrollment = st.checkbox(
-                "Add Year of Enrollment Column")
+            add_year_of_enrollment = st.checkbox("Add Year of Enrollment Column")
 
         if add_year_of_enrollment:
             df["Year of Enrollment"] = "2023-24"
@@ -99,41 +95,34 @@ def main():
             column_order.insert(1, "Year of Enrollment")
 
         final_df = df[column_order]
-
-        renamed_columns = ["Name", "Year of Enrollment",
-                           "Student's Enrollment Number", "Date of Enrollment", "Eligibility"]
-        final_column_names = renamed_columns[:len(final_df.columns)]
-        final_df.columns = final_column_names
+        renamed_columns = ["Name", "Year of Enrollment", "Student's Enrollment Number", "Date of Enrollment", "Eligibility"]
+        final_df.columns = renamed_columns[:len(final_df.columns)]
 
         if "Date of Enrollment" in final_df.columns:
-            final_df["Date of Enrollment"] = final_df["Date of Enrollment"].apply(
-                lambda x: parse_date(str(x)))
+            final_df["Date of Enrollment"] = final_df["Date of Enrollment"].apply(lambda x: parse_date(str(x)))
 
         final_df["Eligibility"] = "eligible"
-
         if dept_name == "All" and class_name == "DSE":
             final_df["Department"] = df["Department"]
-
-        st.write("Selected Data:")
-        st.dataframe(final_df)
 
         if st.button("Save to Database"):
             conn = get_connection()
             cursor = conn.cursor()
 
+            # Determine table name based on department and class
             if dept_name == "All" and class_name == "FE":
                 table_name = "all_fe_2023_24"
             elif dept_name == "All" and class_name == "DSE":
                 table_name = "all_dse"
             else:
-                dept_info = next(
-                    (dept for dept in departments if dept[2] == dept_name), None)
+                dept_info = next((dept for dept in departments if dept[2] == dept_name), None)
                 if dept_info:
                     dept_no, dept_code = dept_info[:2]
                     table_name = f"{dept_no}_{dept_code}_{class_name}"
                 else:
                     table_name = f"{class_name}"
 
+            # Create table if not exists
             create_table_query = f"""
             CREATE TABLE IF NOT EXISTS {table_name} (
                 Name VARCHAR(255),
@@ -148,20 +137,18 @@ def main():
 
             cursor.execute(create_table_query)
 
+            # Clean 'Student's Enrollment Number'
             final_df["Student's Enrollment Number"] = final_df["Student's Enrollment Number"].apply(
-                lambda x: str(x).replace('.0', '') if pd.notna(x) else None)
+                lambda x: str(x).replace('.0', '') if pd.notna(x) else None
+            )
 
+            # Check for existing records
             names = final_df["Name"].tolist()
             existing_names = check_existing_records(table_name, names)
 
-            # Debug: Print existing Names
-            print(f"Existing Names: {existing_names}")
-
+            # Insert data, avoiding duplicates
             for _, row in final_df.iterrows():
                 row_values = [None if pd.isna(val) else val for val in row]
-
-                # Debug: Print row Name and check if it exists
-                print(f"Checking Name: {row['Name']}")
 
                 if row["Name"] not in existing_names:
                     insert_query = f"""
@@ -174,18 +161,11 @@ def main():
                         insert_query += ", %s"
                     insert_query += ")"
                     cursor.execute(insert_query, row_values)
-                    # Add the new Name to the set of existing Names
-                    existing_names.add(row["Name"])
-                else:
-                    # Debug: Print message if record exists
-                    print(
-                        f"Record with Name {row['Name']} already exists. Skipping insertion.")
+                    existing_names.add(row["Name"])  # Update existing names set
 
             conn.commit()
             conn.close()
-            st.success(
-                f"Data saved to {table_name} table in the University database.")
-
+            st.success(f"Data saved to {table_name} table in the University database.")
 
 if __name__ == "__main__":
     main()
