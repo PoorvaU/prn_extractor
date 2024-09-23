@@ -9,11 +9,11 @@ import base64
 # MySQL database connection
 
 # Load database credentials from secrets.toml
-DB_HOST = os.getenv("DATABASE_HOST")
-DB_USER = os.getenv("DATABASE_USER")
-DB_PASSWORD = os.getenv("DATABASE_PASSWORD")
-DB_NAME = os.getenv("DATABASE_NAME")
-DB_PORT = os.getenv("DATABASE_PORT")
+DB_HOST = st.secrets["database"]["DATABASE_HOST"]
+DB_USER = st.secrets["database"]["DATABASE_USER"]
+DB_PASSWORD = st.secrets["database"]["DATABASE_PASSWORD"]
+DB_NAME = st.secrets["database"]["DATABASE_NAME"]
+DB_PORT = int(st.secrets["database"]["DATABASE_PORT"])
 
 
 
