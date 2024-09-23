@@ -11,20 +11,14 @@ DB_PASSWORD = st.secrets["database"]["DATABASE_PASSWORD"]
 DB_NAME = st.secrets["database"]["DATABASE_NAME"]
 DB_PORT = int(st.secrets["database"]["DATABASE_PORT"])
 
-st.write("Host:", DB_HOST)
-st.write("User:", DB_USER)
-st.write("Database Name:", DB_NAME)
-
-
 def get_connection():
-    """Establish connection to the MySQL database."""
+    """Establish a connection to the MySQL database."""
     return mysql.connector.connect(
         host=DB_HOST,
         user=DB_USER,
         password=DB_PASSWORD,
         database=DB_NAME
     )
-
 
 def fetch_departments():
     """Fetch all departments from the Department table."""
@@ -35,13 +29,15 @@ def fetch_departments():
     conn.close()
     return departments
 
-
 def parse_date(date_str):
     """Parse date into a standard format."""
     if pd.isnull(date_str):
         return None
-    formats = ["%b %d %Y %I:%M%p", "%Y-%m-%d", "%m-%d-%Y", "%d-%m-%Y", "%Y/%m/%d", "%d/%m/%Y",
-               "%d-%b-%Y", "%m/%d/%Y", "%Y-%m-%d %H:%M:%S", "%m-%d-%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S"]
+    formats = [
+        "%b %d %Y %I:%M%p", "%Y-%m-%d", "%m-%d-%Y", "%d-%m-%Y",
+        "%Y/%m/%d", "%d/%m/%Y", "%d-%b-%Y", "%m/%d/%Y",
+        "%Y-%m-%d %H:%M:%S", "%m-%d-%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S"
+    ]
     for fmt in formats:
         try:
             return datetime.strptime(date_str, fmt).strftime('%m/%d/%Y')
@@ -49,13 +45,11 @@ def parse_date(date_str):
             continue
     return None
 
-
 def check_existing_records(table_name, names):
     """Check for existing records in the database by Name."""
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Filter out NaN values from names
     cleaned_names = [name for name in names if pd.notna(name)]
     if not cleaned_names:
         return set()
@@ -64,10 +58,8 @@ def check_existing_records(table_name, names):
     query = f"SELECT `Name` FROM {table_name} WHERE `Name` IN ({placeholders})"
     cursor.execute(query, cleaned_names)
     existing_records = cursor.fetchall()
-
     conn.close()
-    return set([record[0] for record in existing_records])
-
+    return set(record[0] for record in existing_records)
 
 def main():
     st.title("PRN Generator")
@@ -87,13 +79,10 @@ def main():
 
     if uploaded_file:
         df = pd.read_excel(uploaded_file)
-        st.write("Uploaded File Columns:")
-        st.dataframe(df.columns)
 
         selected_columns = st.multiselect("Select Columns", df.columns)
 
         add_year_of_enrollment = False
-
         if class_name == "FE" or dept_name == "All":
             add_year_of_enrollment = st.checkbox("Add Year of Enrollment Column")
 
@@ -105,22 +94,15 @@ def main():
             column_order.insert(1, "Year of Enrollment")
 
         final_df = df[column_order]
-
-        renamed_columns = ["Name", "Year of Enrollment",
-                           "Student's Enrollment Number", "Date of Enrollment", "Eligibility"]
-        final_column_names = renamed_columns[:len(final_df.columns)]
-        final_df.columns = final_column_names
+        renamed_columns = ["Name", "Year of Enrollment", "Student's Enrollment Number", "Date of Enrollment", "Eligibility"]
+        final_df.columns = renamed_columns[:len(final_df.columns)]
 
         if "Date of Enrollment" in final_df.columns:
             final_df["Date of Enrollment"] = final_df["Date of Enrollment"].apply(lambda x: parse_date(str(x)))
 
         final_df["Eligibility"] = "eligible"
-
         if dept_name == "All" and class_name == "DSE":
             final_df["Department"] = df["Department"]
-
-        st.write("Selected Data:")
-        st.dataframe(final_df)
 
         if st.button("Save to Database"):
             conn = get_connection()
@@ -139,7 +121,7 @@ def main():
                 else:
                     table_name = f"{class_name}"
 
-            # Create table query with optional 'Department' column
+            # Create table if not exists
             create_table_query = f"""
             CREATE TABLE IF NOT EXISTS {table_name} (
                 Name VARCHAR(255),
@@ -154,9 +136,10 @@ def main():
 
             cursor.execute(create_table_query)
 
-            # Clean 'Student's Enrollment Number' data
+            # Clean 'Student's Enrollment Number'
             final_df["Student's Enrollment Number"] = final_df["Student's Enrollment Number"].apply(
-                lambda x: str(x).replace('.0', '') if pd.notna(x) else None)
+                lambda x: str(x).replace('.0', '') if pd.notna(x) else None
+            )
 
             # Check for existing records
             names = final_df["Name"].tolist()
@@ -178,13 +161,10 @@ def main():
                     insert_query += ")"
                     cursor.execute(insert_query, row_values)
                     existing_names.add(row["Name"])  # Update existing names set
-                else:
-                    st.write(f"Record with Name {row['Name']} already exists. Skipping insertion.")
 
             conn.commit()
             conn.close()
             st.success(f"Data saved to {table_name} table in the University database.")
-
 
 if __name__ == "__main__":
     main()
