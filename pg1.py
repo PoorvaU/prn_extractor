@@ -11,6 +11,7 @@ DB_PASSWORD = st.secrets["database"]["DATABASE_PASSWORD"]
 DB_NAME = st.secrets["database"]["DATABASE_NAME"]
 DB_PORT = int(st.secrets["database"]["DATABASE_PORT"])
 
+
 def get_connection():
     """Establish a connection to the MySQL database."""
     return mysql.connector.connect(
