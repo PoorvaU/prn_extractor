@@ -12,6 +12,11 @@ DB_PASSWORD = st.secrets["database"]["DATABASE_PASSWORD"]
 DB_NAME = st.secrets["database"]["DATABASE_NAME"]
 DB_PORT = int(st.secrets["database"]["DATABASE_PORT"])
 
+
+st.write("Host:", DB_HOST)
+st.write("User:", DB_USER)
+st.write("Database Name:", DB_NAME)
+
 def get_db_connection():
     return mysql.connector.connect(
         host=DB_HOST,
