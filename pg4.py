@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text 
 from fuzzywuzzy import fuzz, process
 
 # Load database credentials from secrets.toml
@@ -17,21 +17,21 @@ engine = create_engine(f'mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST
 # Function to fetch table names from the database
 def get_table_names(engine):
     with engine.connect() as connection:
-        result = connection.execute("SHOW TABLES")
+        result = connection.execute(text("SHOW TABLES"))
         tables = [row[0] for row in result]
     return tables
 
 # Function to fetch column names from a table
 def get_column_names(engine, table_name):
     with engine.connect() as connection:
-        result = connection.execute(f"SHOW COLUMNS FROM {table_name}")
+        result = connection.execute(text(f"SHOW COLUMNS FROM {table_name}"))
         columns = [row[0] for row in result]
     return columns
 
 # Function to fetch data from a table
 def get_table_data(engine, table_name):
     with engine.connect() as connection:
-        return pd.read_sql(f"SELECT * FROM {table_name}", connection)
+        return pd.read_sql(text(f"SELECT * FROM {table_name}"), connection)
 
 # Function to perform fuzzy matching and find the closest match
 def fuzzy_match(value, choices):
