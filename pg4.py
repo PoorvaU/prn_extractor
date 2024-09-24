@@ -37,9 +37,18 @@ def get_column_names(conn, table_name):
     columns = cursor.fetchall()
     return [column[0] for column in columns]
 
-# Function to fetch data from a table
+# Function to fetch data from a table using mysql.connector
 def get_table_data(conn, table_name):
-    return pd.read_sql(f"SELECT * FROM `{table_name}`", conn)
+    cursor = conn.cursor(dictionary=True)  # Use dictionary cursor to return results as dicts
+    query = f"SELECT * FROM `{table_name}`"
+    cursor.execute(query)
+    rows = cursor.fetchall()  # Fetch all rows
+    cursor.close()  # Close the cursor after fetching data
+    
+    # Convert the fetched data into a pandas DataFrame
+    df = pd.DataFrame(rows)
+    return df
+
 
 # Function to perform fuzzy matching and find the closest match
 def fuzzy_match(value, choices):
