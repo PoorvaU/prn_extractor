@@ -4,10 +4,12 @@ import mysql.connector
 from fuzzywuzzy import fuzz, process
 
 # Load database credentials from secrets.toml
+
 DB_HOST = st.secrets["database"]["DATABASE_HOST"]
 DB_USER = st.secrets["database"]["DATABASE_USER"]
 DB_PASSWORD = st.secrets["database"]["DATABASE_PASSWORD"]
 DB_NAME = st.secrets["database"]["DATABASE_NAME"]
+
 
 def get_db_connection():
     return mysql.connector.connect(
@@ -109,6 +111,7 @@ def append_data_to_table(table_name, data):
         st.write(f"Error appending data to {table_name}: {e}")
     finally:
         conn.close()
+
 
 def main():
     # Streamlit app
@@ -301,6 +304,7 @@ def main():
 
     else:
         st.warning("Please select a valid department.")
+
 
 if __name__ == "__main__":
     main()
