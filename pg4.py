@@ -159,7 +159,7 @@ def main():
                             # Find the corresponding Dept_no and Dept_Code
                             dept_info = department_table_data[department_table_data["Dept_name"] == selected_department].iloc[0]
                             dept_no = dept_info["Dept_no"]
-                            Dept_Code = dept_info["Dept_Code"]
+                            Dept_Code = dept_info["Dept_code"]
                             new_table_name = f"{dept_no}_{Dept_Code}_FE"
 
                             if st.button("Run Comparison"):
